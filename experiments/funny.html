@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Funny Colors + Emoji</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    input { padding: 10px 12px; font-size: 16px; width: min(520px, 100%); }
+    button { padding: 10px 12px; font-size: 16px; cursor: pointer; }
+    #out { font-size: 40px; line-height: 1.2; word-break: break-word; }
+    .ch { display: inline-block; font-weight: 800; text-shadow: 1px 1px 0 rgba(0,0,0,.15); }
+  </style>
+</head>
+<body>
+  <h1>🎨 Funny Text Machine</h1>
+
+  <div class="row">
+    <input id="inp" placeholder="Type something…" />
+    <button id="go">Make it funny</button>
+  </div>
+
+  <div id="out" aria-live="polite"></div>
+
+  <script>
+    // Change this default string if you want:
+    const text = "Hello, world!";
+
+    const emojis = ["🤣","😺","✨","🌈","🦄","🤪","🍕","💥","🕺","🎉","👀","🐸"];
+    const colors = [
+      "#ff006e", "#8338ec", "#3a86ff", "#06d6a0", "#ffd166", "#fb5607"
+    ];
+
+    function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+
+    function render(str) {
+      const out = document.getElementById("out");
+      out.innerHTML = "";
+
+      // split into characters so we can color each one
+      [...str].forEach((c, i) => {
+        const span = document.createElement("span");
+        span.className = "ch";
+        span.textContent = c;
+
+        // funny color + wiggle
+        span.style.color = colors[i % colors.length];
+        span.style.transform = `translateY(${Math.sin(i * 0.8) * 10}px) rotate(${(Math.sin(i) * 8)}deg)`;
+
+        out.appendChild(span);
+
+        // sprinkle emoji every few chars (and also after spaces sometimes)
+        if (i % 4 === 3 || (c === " " && Math.random() < 0.35)) {
+          const e = document.createElement("span");
+          e.className = "ch";
+          e.textContent = rand(emojis);
+          e.style.marginLeft = "6px";
+          e.style.transform = `translateY(${(Math.random() * 10 - 5)}px) rotate(${(Math.random() * 20 - 10)}deg)`;
+          out.appendChild(e);
+        }
+      });
+    }
+
+    // wire up UI
+    const inp = document.getElementById("inp");
+    const go = document.getElementById("go");
+    inp.value = text;
+
+    go.addEventListener("click", () => render(inp.value));
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") render(inp.value); });
+
+    // initial render
+    render(text);
+  </script>
+</body>
+</html>
