@@ -124,24 +124,40 @@
         .download-btn.show {
             display: inline-block;
         }
+
+        .info {
+            margin-top: 15px;
+            padding: 12px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #1976d2;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>ASCII Emoji → SVG</h1>
-        <p class="subtitle">Convert text emoticons into scalable vector graphics</p>
+        <p class="subtitle">Convert any text emoticon into scalable vector graphics</p>
         
         <div class="input-section">
-            <input type="text" id="emojiInput" placeholder="Type an ASCII emoji (e.g., :) or ^_^)" maxlength="10">
+            <input type="text" id="emojiInput" placeholder="Type any ASCII emoji (e.g., :) or (╯°□°)╯︵ ┻━┻)" maxlength="30">
             <div class="quick-select">
                 <button class="emoji-btn" data-emoji=":)">:)</button>
-                <button class="emoji-btn" data-emoji=":(">:(</button>
                 <button class="emoji-btn" data-emoji=":D">:D</button>
+                <button class="emoji-btn" data-emoji=":'(">:'(</button>
                 <button class="emoji-btn" data-emoji=";)";)">;</button>
                 <button class="emoji-btn" data-emoji="^_^">^_^</button>
-                <button class="emoji-btn" data-emoji="o_o">o_o</button>
+                <button class="emoji-btn" data-emoji=">:(">>;(</button>
                 <button class="emoji-btn" data-emoji="<3"><3</button>
                 <button class="emoji-btn" data-emoji=":P">:P</button>
+                <button class="emoji-btn" data-emoji="O_O">O_O</button>
+                <button class="emoji-btn" data-emoji="¯\\_(ツ)_/¯">¯\_(ツ)_/¯</button>
+                <button class="emoji-btn" data-emoji="(╯°□°)╯︵ ┻━┻">(╯°□°)╯︵ ┻━┻</button>
+                <button class="emoji-btn" data-emoji="(づ￣ ³￣)づ">(づ￣ ³￣)づ</button>
+            </div>
+            <div class="info">
+                Try any emoticon! The converter interprets eyes, mouths, and special characters.
             </div>
         </div>
 
@@ -158,53 +174,305 @@
         const downloadBtn = document.getElementById('downloadBtn');
         const quickBtns = document.querySelectorAll('.emoji-btn');
 
-        const emojiMap = {
-            ':)': { face: 'yellow', mouth: 'M30,45 Q40,55 50,45', eyes: [[25,30], [55,30]] },
-            ':(': { face: 'yellow', mouth: 'M30,50 Q40,40 50,50', eyes: [[25,30], [55,30]] },
-            ':D': { face: 'yellow', mouth: 'M25,40 Q40,60 55,40 L55,45 Q40,58 25,45 Z', eyes: [[25,28], [55,28]] },
-            ';)': { face: 'yellow', mouth: 'M30,45 Q40,55 50,45', eyes: [[25,30], [55,30]], wink: true },
-            '^_^': { face: '#FFE0BD', mouth: 'M30,48 Q40,52 50,48', eyes: [[25,30], [55,30]], happy: true },
-            'o_o': { face: '#FFE0BD', mouth: 'M35,50 L45,50', eyes: [[25,30], [55,30]], surprised: true },
-            '<3': { face: 'red', heart: true },
-            ':P': { face: 'yellow', mouth: 'M30,45 Q40,55 50,45', tongue: true, eyes: [[25,30], [55,30]] },
-            'XD': { face: 'yellow', mouth: 'M25,40 Q40,60 55,40 L55,45 Q40,58 25,45 Z', eyes: [[25,30], [55,30]], laughing: true },
-            ':/': { face: 'yellow', mouth: 'M28,45 L52,48', eyes: [[25,30], [55,30]] },
-            'O_O': { face: '#FFE0BD', mouth: 'M37,52 Q40,55 43,52', eyes: [[25,30], [55,30]], shocked: true }
-        };
+        function analyzeEmoji(emoji) {
+            emoji = emoji.trim();
+            
+            // Detect heart
+            if (emoji.includes('<3') || emoji.includes('♥') || emoji.includes('❤')) {
+                return { type: 'heart' };
+            }
+
+            // Detect table flip
+            if (emoji.includes('┻━┻') || emoji.includes('┻━┻')) {
+                return { type: 'tableflip' };
+            }
+
+            // Detect shrug
+            if (emoji.includes('¯\\_(ツ)_/¯') || emoji.includes('¯\\_') || (emoji.includes('ツ') && emoji.includes('_'))) {
+                return { type: 'shrug' };
+            }
+
+            // Detect hug/reach
+            if ((emoji.includes('(づ') || emoji.includes('(つ')) && emoji.includes('づ)')) {
+                return { type: 'hug' };
+            }
+
+            const result = {
+                type: 'face',
+                eyes: [],
+                mouth: null,
+                eyebrows: null,
+                tears: false,
+                blush: false,
+                sweat: false
+            };
+
+            // Detect eyes
+            const eyePatterns = [
+                { pattern: /[oO0]/, type: 'round', size: 'large' },
+                { pattern: /[°ﾟ◉●]/, type: 'round', size: 'medium' },
+                { pattern: /[•·]/, type: 'round', size: 'small' },
+                { pattern: /[:;=]/, type: 'dots', size: 'small' },
+                { pattern: /[\^˘⌒˶]/, type: 'happy', size: 'medium' },
+                { pattern: /[-–—]/, type: 'line', size: 'small' },
+                { pattern: /[xX✖×]/, type: 'cross', size: 'medium' },
+                { pattern: /[@◎⊙]/, type: 'spiral', size: 'large' },
+                { pattern: /[>＞]/, type: 'arrow', size: 'medium' },
+                { pattern: /[<＜]/, type: 'arrow_left', size: 'medium' },
+                { pattern: /[★☆]/, type: 'star', size: 'medium' },
+                { pattern: /[TT]/, type: 'crying', size: 'large' },
+                { pattern: /[□■]/, type: 'square', size: 'medium' }
+            ];
+
+            let chars = emoji.split('');
+            let foundEyes = [];
+            
+            for (let i = 0; i < chars.length; i++) {
+                for (let eyePattern of eyePatterns) {
+                    if (eyePattern.pattern.test(chars[i])) {
+                        foundEyes.push({ char: chars[i], ...eyePattern, index: i });
+                    }
+                }
+            }
+
+            // Take the most common eye type if multiple found
+            if (foundEyes.length >= 2) {
+                result.eyes = [foundEyes[0], foundEyes[foundEyes.length - 1]];
+            } else if (foundEyes.length === 1) {
+                result.eyes = [foundEyes[0], foundEyes[0]];
+            }
+
+            // Detect wink (semicolon or different eyes)
+            if (emoji.includes(';') || (result.eyes.length === 2 && result.eyes[0].type !== result.eyes[1].type)) {
+                result.wink = true;
+            }
+
+            // Detect mouth
+            const mouthPatterns = [
+                { pattern: /[)）]/, type: 'smile' },
+                { pattern: /[(（]/, type: 'frown' },
+                { pattern: /[D]/, type: 'big_smile' },
+                { pattern: /[Ppﾟ]/, type: 'tongue' },
+                { pattern: /[/\\]/, type: 'skeptical' },
+                { pattern: /[_─━-]/, type: 'straight' },
+                { pattern: /[oO0]/, type: 'surprised' },
+                { pattern: /[<>＜＞]/, type: 'small' },
+                { pattern: /[3]/, type: 'kiss' },
+                { pattern: /[ω]/, type: 'cat' },
+                { pattern: /[□]/, type: 'square' },
+                { pattern: /[∇▽]/, type: 'triangle' }
+            ];
+
+            for (let char of chars) {
+                for (let mouthPattern of mouthPatterns) {
+                    if (mouthPattern.pattern.test(char) && !foundEyes.some(e => e.char === char)) {
+                        result.mouth = mouthPattern;
+                        break;
+                    }
+                }
+                if (result.mouth) break;
+            }
+
+            // Detect tears
+            if (emoji.includes("'") || emoji.includes('т') || emoji.includes('T_T')) {
+                result.tears = true;
+            }
+
+            // Detect blush
+            if (emoji.includes('///') || emoji.includes('▰')) {
+                result.blush = true;
+            }
+
+            // Detect sweat
+            if (emoji.includes('ˊ') || emoji.includes('´')) {
+                result.sweat = true;
+            }
+
+            // Detect eyebrows
+            if (emoji.includes('>') && emoji.includes('<') && result.mouth && result.mouth.type === 'frown') {
+                result.eyebrows = 'angry';
+            } else if (emoji.includes('︶')) {
+                result.eyebrows = 'sad';
+            }
+
+            return result;
+        }
 
         function createSVG(emoji) {
-            const config = emojiMap[emoji];
-            if (!config) return null;
-
-            let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="150" height="150">';
+            const config = analyzeEmoji(emoji);
             
-            if (config.heart) {
+            let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="150" height="150">';
+            
+            if (config.type === 'heart') {
                 svg += `
-                    <path d="M40,70 C40,70 10,50 10,30 C10,15 20,10 27,10 C33,10 38,14 40,18 C42,14 47,10 53,10 C60,10 70,15 70,30 C70,50 40,70 40,70 Z" 
-                          fill="${config.face}" stroke="#C41E3A" stroke-width="2"/>
+                    <path d="M50,85 C50,85 15,62 15,38 C15,20 25,13 34,13 C41,13 47,18 50,23 C53,18 59,13 66,13 C75,13 85,20 85,38 C85,62 50,85 50,85 Z" 
+                          fill="#FF4458" stroke="#C41E3A" stroke-width="2"/>
+                    <ellipse cx="35" cy="28" rx="8" ry="10" fill="#FF8FA3" opacity="0.6"/>
+                `;
+            } else if (config.type === 'tableflip') {
+                svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 120" width="200" height="120">';
+                svg += `
+                    <g id="person" transform="translate(30,40)">
+                        <circle cx="20" cy="20" r="18" fill="#FFE0BD" stroke="#333" stroke-width="2"/>
+                        <circle cx="15" cy="18" r="2" fill="#333"/>
+                        <circle cx="25" cy="18" r="2" fill="#333"/>
+                        <path d="M15,25 Q20,28 25,25" fill="none" stroke="#333" stroke-width="2"/>
+                        <line x1="20" y1="38" x2="20" y2="60" stroke="#333" stroke-width="3"/>
+                        <path d="M20,45 L5,30" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                        <path d="M20,45 L35,30" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                        <line x1="20" y1="60" x2="10" y2="75" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                        <line x1="20" y1="60" x2="30" y2="75" stroke="#333" stroke-width="3" stroke-linecap="round"/>
+                    </g>
+                    <g id="table" transform="translate(100,50) rotate(-30)">
+                        <rect x="0" y="0" width="60" height="8" fill="#8B4513" stroke="#654321" stroke-width="2"/>
+                        <line x1="5" y1="8" x2="0" y2="30" stroke="#654321" stroke-width="3"/>
+                        <line x1="55" y1="8" x2="60" y2="30" stroke="#654321" stroke-width="3"/>
+                    </g>
+                `;
+            } else if (config.type === 'shrug') {
+                svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 150 100" width="180" height="120">';
+                svg += `
+                    <text x="75" y="30" font-size="24" text-anchor="middle" fill="#333">¯\\_(ツ)_/¯</text>
+                    <circle cx="75" cy="50" r="20" fill="#FFE0BD" stroke="#333" stroke-width="2"/>
+                    <path d="M70,48 L73,52 L76,48" fill="none" stroke="#333" stroke-width="2"/>
+                    <circle cx="68" cy="47" r="2" fill="#333"/>
+                    <circle cx="82" cy="47" r="2" fill="#333"/>
+                `;
+            } else if (config.type === 'hug') {
+                svg += `
+                    <circle cx="50" cy="50" r="30" fill="#FFE0BD" stroke="#333" stroke-width="2"/>
+                    <circle cx="42" cy="45" r="3" fill="#333"/>
+                    <circle cx="58" cy="45" r="3" fill="#333"/>
+                    <path d="M40,58 Q50,65 60,58" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round"/>
+                    <ellipse cx="35" cy="50" rx="4" ry="6" fill="#FFB6C1" opacity="0.6"/>
+                    <ellipse cx="65" cy="50" rx="4" ry="6" fill="#FFB6C1" opacity="0.6"/>
+                    <path d="M15,50 Q20,45 25,50 Q20,55 15,50" fill="#FFE0BD" stroke="#333" stroke-width="2"/>
+                    <path d="M85,50 Q80,45 75,50 Q80,55 85,50" fill="#FFE0BD" stroke="#333" stroke-width="2"/>
                 `;
             } else {
-                svg += `<circle cx="40" cy="40" r="35" fill="${config.face}" stroke="#333" stroke-width="2"/>`;
+                // Draw face
+                svg += `<circle cx="50" cy="50" r="35" fill="#FFD93D" stroke="#333" stroke-width="2"/>`;
                 
-                config.eyes.forEach(([x, y], i) => {
-                    if (config.wink && i === 0) {
-                        svg += `<path d="M${x-5},${y} Q${x},${y+3} ${x+5},${y}" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
-                    } else if (config.happy) {
-                        svg += `<path d="M${x-5},${y+3} Q${x},${y-2} ${x+5},${y+3}" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
-                    } else if (config.laughing) {
-                        svg += `<path d="M${x-6},${y} L${x+6},${y+8} M${x-6},${y+8} L${x+6},${y}" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
-                    } else if (config.surprised || config.shocked) {
-                        const r = config.shocked ? 6 : 5;
-                        svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="#333"/>`;
-                    } else {
+                // Draw eyes
+                const eyePositions = [[35, 42], [65, 42]];
+                config.eyes.forEach((eye, i) => {
+                    const [x, y] = eyePositions[i];
+                    
+                    if (!eye) {
                         svg += `<circle cx="${x}" cy="${y}" r="4" fill="#333"/>`;
+                        return;
+                    }
+
+                    // Handle wink on first eye
+                    if (config.wink && i === 0) {
+                        svg += `<path d="M${x-6},${y} Q${x},${y+4} ${x+6},${y}" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                        return;
+                    }
+
+                    switch(eye.type) {
+                        case 'round':
+                            const radius = eye.size === 'large' ? 6 : eye.size === 'medium' ? 5 : 4;
+                            svg += `<circle cx="${x}" cy="${y}" r="${radius}" fill="#333"/>`;
+                            if (eye.size === 'large') {
+                                svg += `<circle cx="${x-2}" cy="${y-2}" r="2" fill="white"/>`;
+                            }
+                            break;
+                        case 'happy':
+                            svg += `<path d="M${x-6},${y+4} Q${x},${y-3} ${x+6},${y+4}" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            break;
+                        case 'cross':
+                            svg += `<path d="M${x-5},${y-5} L${x+5},${y+5} M${x-5},${y+5} L${x+5},${y-5}" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            break;
+                        case 'line':
+                            svg += `<line x1="${x-6}" y1="${y}" x2="${x+6}" y2="${y}" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            break;
+                        case 'spiral':
+                            svg += `<circle cx="${x}" cy="${y}" r="6" fill="none" stroke="#333" stroke-width="2"/>`;
+                            svg += `<circle cx="${x}" cy="${y}" r="3" fill="#333"/>`;
+                            break;
+                        case 'star':
+                            svg += `<path d="M${x},${y-5} L${x+2},${y+5} L${x-5},${y-1} L${x+5},${y-1} L${x-2},${y+5} Z" fill="#333"/>`;
+                            break;
+                        case 'crying':
+                            svg += `<line x1="${x-3}" y1="${y-6}" x2="${x-3}" y2="${y+6}" stroke="#333" stroke-width="2.5"/>`;
+                            svg += `<line x1="${x+3}" y1="${y-6}" x2="${x+3}" y2="${y+6}" stroke="#333" stroke-width="2.5"/>`;
+                            break;
+                        case 'square':
+                            svg += `<rect x="${x-5}" y="${y-5}" width="10" height="10" fill="none" stroke="#333" stroke-width="2"/>`;
+                            break;
+                        default:
+                            svg += `<circle cx="${x}" cy="${y}" r="4" fill="#333"/>`;
                     }
                 });
-                
-                svg += `<path d="${config.mouth}" fill="${config.tongue ? '#FF6B9D' : 'none'}" stroke="#333" stroke-width="2" stroke-linecap="round"/>`;
-                
-                if (config.tongue) {
-                    svg += `<ellipse cx="40" cy="52" rx="6" ry="8" fill="#FF6B9D" stroke="#333" stroke-width="1.5"/>`;
+
+                // Draw eyebrows
+                if (config.eyebrows === 'angry') {
+                    svg += `<path d="M28,35 L42,38" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                    svg += `<path d="M72,35 L58,38" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                }
+
+                // Draw blush
+                if (config.blush) {
+                    svg += `<ellipse cx="25" cy="55" rx="5" ry="3" fill="#FF9999" opacity="0.5"/>`;
+                    svg += `<ellipse cx="75" cy="55" rx="5" ry="3" fill="#FF9999" opacity="0.5"/>`;
+                }
+
+                // Draw tears
+                if (config.tears) {
+                    svg += `<ellipse cx="32" cy="52" rx="2" ry="6" fill="#6EC1E4"/>`;
+                    svg += `<ellipse cx="68" cy="52" rx="2" ry="6" fill="#6EC1E4"/>`;
+                }
+
+                // Draw sweat
+                if (config.sweat) {
+                    svg += `<ellipse cx="72" cy="35" rx="3" ry="5" fill="#6EC1E4"/>`;
+                }
+
+                // Draw mouth
+                if (config.mouth) {
+                    switch(config.mouth.type) {
+                        case 'smile':
+                            svg += `<path d="M35,60 Q50,72 65,60" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            break;
+                        case 'frown':
+                            svg += `<path d="M35,65 Q50,55 65,65" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            break;
+                        case 'big_smile':
+                            svg += `<path d="M32,58 Q50,75 68,58 L68,62 Q50,73 32,62 Z" fill="#333"/>`;
+                            svg += `<rect x="40" y="65" width="20" height="8" fill="white"/>`;
+                            break;
+                        case 'tongue':
+                            svg += `<path d="M35,60 Q50,70 65,60" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            svg += `<ellipse cx="50" cy="68" rx="6" ry="8" fill="#FF6B9D" stroke="#333" stroke-width="1.5"/>`;
+                            break;
+                        case 'skeptical':
+                            svg += `<line x1="35" y1="62" x2="65" y2="65" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            break;
+                        case 'straight':
+                            svg += `<line x1="38" y1="63" x2="62" y2="63" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                            break;
+                        case 'surprised':
+                            svg += `<circle cx="50" cy="63" r="6" fill="none" stroke="#333" stroke-width="2.5"/>`;
+                            break;
+                        case 'small':
+                            svg += `<circle cx="50" cy="63" r="3" fill="#333"/>`;
+                            break;
+                        case 'kiss':
+                            svg += `<ellipse cx="50" cy="62" rx="5" ry="7" fill="none" stroke="#333" stroke-width="2.5"/>`;
+                            break;
+                        case 'cat':
+                            svg += `<path d="M38,60 Q50,68 62,60" fill="none" stroke="#333" stroke-width="2" stroke-linecap="round"/>`;
+                            svg += `<path d="M44,64 Q50,66 56,64" fill="none" stroke="#333" stroke-width="2"/>`;
+                            break;
+                        case 'square':
+                            svg += `<rect x="42" y="58" width="16" height="10" fill="none" stroke="#333" stroke-width="2"/>`;
+                            break;
+                        case 'triangle':
+                            svg += `<path d="M50,60 L42,70 L58,70 Z" fill="none" stroke="#333" stroke-width="2"/>`;
+                            break;
+                        default:
+                            svg += `<line x1="38" y1="63" x2="62" y2="63" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                    }
                 }
             }
             
@@ -213,18 +481,19 @@
         }
 
         function updateOutput(emoji) {
-            const svg = createSVG(emoji);
-            if (svg) {
-                output.innerHTML = svg;
-                downloadBtn.classList.add('show');
-            } else {
-                output.innerHTML = '<p class="placeholder">Emoji not recognized. Try: :) :( :D ;) ^_^ o_o <3 :P</p>';
+            if (!emoji) {
+                output.innerHTML = '<p class="placeholder">Your SVG will appear here</p>';
                 downloadBtn.classList.remove('show');
+                return;
             }
+
+            const svg = createSVG(emoji);
+            output.innerHTML = svg;
+            downloadBtn.classList.add('show');
         }
 
         input.addEventListener('input', (e) => {
-            updateOutput(e.target.value.trim());
+            updateOutput(e.target.value);
         });
 
         quickBtns.forEach(btn => {
@@ -244,7 +513,7 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `emoji-${input.value.replace(/[^a-zA-Z0-9]/g, '')}.svg`;
+            a.download = `emoji-${Date.now()}.svg`;
             a.click();
             URL.revokeObjectURL(url);
         });
