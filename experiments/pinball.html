@@ -125,10 +125,10 @@
     
     let score = 0;
     let ball = {
-        x: canvas.width / 2,
+        x: canvas.width * (0.3 + Math.random() * 0.4),
         y: 100,
         radius: 8,
-        vx: 2,
+        vx: (Math.random() - 0.5) * 4,
         vy: 0,
         gravity: 0.3
     };
@@ -136,8 +136,8 @@
     let leftFlipper = {
         x: canvas.width * 0.3,
         y: canvas.height - 80,
-        width: 80,
-        height: 15,
+        width: 100,
+        height: 20,
         angle: 0.3,
         targetAngle: 0.3,
         active: false
@@ -146,8 +146,8 @@
     let rightFlipper = {
         x: canvas.width * 0.7,
         y: canvas.height - 80,
-        width: 80,
-        height: 15,
+        width: 100,
+        height: 20,
         angle: -0.3,
         targetAngle: -0.3,
         active: false
@@ -431,9 +431,9 @@
     
     // Restart
     document.getElementById('restart').addEventListener('click', () => {
-        ball.x = canvas.width / 2;
+        ball.x = canvas.width * (0.3 + Math.random() * 0.4);
         ball.y = 100;
-        ball.vx = 2;
+        ball.vx = (Math.random() - 0.5) * 4;
         ball.vy = 0;
         score = 0;
         gameActive = true;
