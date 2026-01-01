@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ASCII Emoji to SVG Converter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .input-section {
+            margin-bottom: 30px;
+        }
+
+        input {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .quick-select {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 15px;
+        }
+
+        .emoji-btn {
+            padding: 8px 15px;
+            background: #f0f0f0;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .emoji-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .output-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 30px;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .svg-output {
+            transition: all 0.3s;
+        }
+
+        .placeholder {
+            color: #999;
+            font-style: italic;
+        }
+
+        .download-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: none;
+        }
+
+        .download-btn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .download-btn.show {
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>ASCII Emoji → SVG</h1>
+        <p class="subtitle">Convert text emoticons into scalable vector graphics</p>
+        
+        <div class="input-section">
+            <input type="text" id="emojiInput" placeholder="Type an ASCII emoji (e.g., :) or ^_^)" maxlength="10">
+            <div class="quick-select">
+                <button class="emoji-btn" data-emoji=":)">:)</button>
+                <button class="emoji-btn" data-emoji=":(">:(</button>
+                <button class="emoji-btn" data-emoji=":D">:D</button>
+                <button class="emoji-btn" data-emoji=";)";)">;</button>
+                <button class="emoji-btn" data-emoji="^_^">^_^</button>
+                <button class="emoji-btn" data-emoji="o_o">o_o</button>
+                <button class="emoji-btn" data-emoji="<3"><3</button>
+                <button class="emoji-btn" data-emoji=":P">:P</button>
+            </div>
+        </div>
+
+        <div class="output-section" id="output">
+            <p class="placeholder">Your SVG will appear here</p>
+        </div>
+
+        <button class="download-btn" id="downloadBtn">Download SVG</button>
+    </div>
+
+    <script>
+        const input = document.getElementById('emojiInput');
+        const output = document.getElementById('output');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const quickBtns = document.querySelectorAll('.emoji-btn');
+
+        const emojiMap = {
+            ':)': { face: 'yellow', mouth: 'M30,45 Q40,55 50,45', eyes: [[25,30], [55,30]] },
+            ':(': { face: 'yellow', mouth: 'M30,50 Q40,40 50,50', eyes: [[25,30], [55,30]] },
+            ':D': { face: 'yellow', mouth: 'M25,40 Q40,60 55,40 L55,45 Q40,58 25,45 Z', eyes: [[25,28], [55,28]] },
+            ';)': { face: 'yellow', mouth: 'M30,45 Q40,55 50,45', eyes: [[25,30], [55,30]], wink: true },
+            '^_^': { face: '#FFE0BD', mouth: 'M30,48 Q40,52 50,48', eyes: [[25,30], [55,30]], happy: true },
+            'o_o': { face: '#FFE0BD', mouth: 'M35,50 L45,50', eyes: [[25,30], [55,30]], surprised: true },
+            '<3': { face: 'red', heart: true },
+            ':P': { face: 'yellow', mouth: 'M30,45 Q40,55 50,45', tongue: true, eyes: [[25,30], [55,30]] },
+            'XD': { face: 'yellow', mouth: 'M25,40 Q40,60 55,40 L55,45 Q40,58 25,45 Z', eyes: [[25,30], [55,30]], laughing: true },
+            ':/': { face: 'yellow', mouth: 'M28,45 L52,48', eyes: [[25,30], [55,30]] },
+            'O_O': { face: '#FFE0BD', mouth: 'M37,52 Q40,55 43,52', eyes: [[25,30], [55,30]], shocked: true }
+        };
+
+        function createSVG(emoji) {
+            const config = emojiMap[emoji];
+            if (!config) return null;
+
+            let svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" width="150" height="150">';
+            
+            if (config.heart) {
+                svg += `
+                    <path d="M40,70 C40,70 10,50 10,30 C10,15 20,10 27,10 C33,10 38,14 40,18 C42,14 47,10 53,10 C60,10 70,15 70,30 C70,50 40,70 40,70 Z" 
+                          fill="${config.face}" stroke="#C41E3A" stroke-width="2"/>
+                `;
+            } else {
+                svg += `<circle cx="40" cy="40" r="35" fill="${config.face}" stroke="#333" stroke-width="2"/>`;
+                
+                config.eyes.forEach(([x, y], i) => {
+                    if (config.wink && i === 0) {
+                        svg += `<path d="M${x-5},${y} Q${x},${y+3} ${x+5},${y}" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                    } else if (config.happy) {
+                        svg += `<path d="M${x-5},${y+3} Q${x},${y-2} ${x+5},${y+3}" fill="none" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                    } else if (config.laughing) {
+                        svg += `<path d="M${x-6},${y} L${x+6},${y+8} M${x-6},${y+8} L${x+6},${y}" stroke="#333" stroke-width="2.5" stroke-linecap="round"/>`;
+                    } else if (config.surprised || config.shocked) {
+                        const r = config.shocked ? 6 : 5;
+                        svg += `<circle cx="${x}" cy="${y}" r="${r}" fill="#333"/>`;
+                    } else {
+                        svg += `<circle cx="${x}" cy="${y}" r="4" fill="#333"/>`;
+                    }
+                });
+                
+                svg += `<path d="${config.mouth}" fill="${config.tongue ? '#FF6B9D' : 'none'}" stroke="#333" stroke-width="2" stroke-linecap="round"/>`;
+                
+                if (config.tongue) {
+                    svg += `<ellipse cx="40" cy="52" rx="6" ry="8" fill="#FF6B9D" stroke="#333" stroke-width="1.5"/>`;
+                }
+            }
+            
+            svg += '</svg>';
+            return svg;
+        }
+
+        function updateOutput(emoji) {
+            const svg = createSVG(emoji);
+            if (svg) {
+                output.innerHTML = svg;
+                downloadBtn.classList.add('show');
+            } else {
+                output.innerHTML = '<p class="placeholder">Emoji not recognized. Try: :) :( :D ;) ^_^ o_o <3 :P</p>';
+                downloadBtn.classList.remove('show');
+            }
+        }
+
+        input.addEventListener('input', (e) => {
+            updateOutput(e.target.value.trim());
+        });
+
+        quickBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const emoji = btn.dataset.emoji;
+                input.value = emoji;
+                updateOutput(emoji);
+            });
+        });
+
+        downloadBtn.addEventListener('click', () => {
+            const svgElement = output.querySelector('svg');
+            if (!svgElement) return;
+            
+            const svgData = new XMLSerializer().serializeToString(svgElement);
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `emoji-${input.value.replace(/[^a-zA-Z0-9]/g, '')}.svg`;
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    </script>
+</body>
+</html>
