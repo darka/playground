@@ -202,6 +202,15 @@
 
         let bricks = [];
 
+        // Floating enemies
+        let enemies = [];
+        const enemyConfig = {
+            minSize: 15,
+            maxSize: 25,
+            baseSpeed: 1.5,
+            spawnStartLevel: 2  // Enemies start appearing at level 2
+        };
+
         // Particles for effects
         let particles = [];
 
@@ -224,6 +233,80 @@
                     });
                 }
             }
+        }
+
+        function createEnemies() {
+            enemies = [];
+            if (level < enemyConfig.spawnStartLevel) return;
+
+            // Number of enemies increases with level
+            const numEnemies = Math.min(level - 1, 6);
+            const colors = ['#9b59b6', '#8e44ad', '#e91e63', '#ff5722'];
+
+            for (let i = 0; i < numEnemies; i++) {
+                const size = enemyConfig.minSize + Math.random() * (enemyConfig.maxSize - enemyConfig.minSize);
+                const speed = enemyConfig.baseSpeed + (level * 0.2);
+
+                // Spawn in the middle area of the screen (below bricks, above paddle)
+                const spawnY = 200 + Math.random() * 200;
+                const spawnX = size + Math.random() * (canvas.width - size * 2);
+
+                enemies.push({
+                    x: spawnX,
+                    y: spawnY,
+                    size: size,
+                    dx: (Math.random() - 0.5) * speed * 2,
+                    dy: (Math.random() - 0.5) * speed * 2,
+                    color: colors[i % colors.length],
+                    angle: Math.random() * Math.PI * 2,
+                    rotationSpeed: (Math.random() - 0.5) * 0.1,
+                    bobPhase: Math.random() * Math.PI * 2,
+                    alive: true
+                });
+            }
+        }
+
+        function updateEnemies() {
+            enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+
+                // Update position
+                enemy.x += enemy.dx;
+                enemy.y += enemy.dy;
+
+                // Add floating bob effect
+                enemy.bobPhase += 0.05;
+                const bobOffset = Math.sin(enemy.bobPhase) * 0.5;
+                enemy.y += bobOffset;
+
+                // Update rotation
+                enemy.angle += enemy.rotationSpeed;
+
+                // Bounce off walls
+                if (enemy.x - enemy.size < 0) {
+                    enemy.x = enemy.size;
+                    enemy.dx *= -1;
+                }
+                if (enemy.x + enemy.size > canvas.width) {
+                    enemy.x = canvas.width - enemy.size;
+                    enemy.dx *= -1;
+                }
+
+                // Bounce off top and bottom bounds (stay in play area)
+                const topBound = 150;
+                const bottomBound = paddle.y - 50;
+                if (enemy.y - enemy.size < topBound) {
+                    enemy.y = topBound + enemy.size;
+                    enemy.dy *= -1;
+                }
+                if (enemy.y + enemy.size > bottomBound) {
+                    enemy.y = bottomBound - enemy.size;
+                    enemy.dy *= -1;
+                }
+            });
+
+            // Remove dead enemies
+            enemies = enemies.filter(e => e.alive);
         }
 
         function createParticles(x, y, color) {
@@ -336,6 +419,80 @@
             });
         }
 
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+
+                ctx.save();
+                ctx.translate(enemy.x, enemy.y);
+                ctx.rotate(enemy.angle);
+
+                // Glow effect
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = enemy.color;
+
+                // Draw enemy as a spiky star shape
+                ctx.beginPath();
+                const spikes = 5;
+                const outerRadius = enemy.size;
+                const innerRadius = enemy.size * 0.5;
+
+                for (let i = 0; i < spikes * 2; i++) {
+                    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+                    const angle = (i * Math.PI) / spikes - Math.PI / 2;
+                    const x = Math.cos(angle) * radius;
+                    const y = Math.sin(angle) * radius;
+
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                ctx.closePath();
+
+                // Gradient fill
+                const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, outerRadius);
+                gradient.addColorStop(0, '#fff');
+                gradient.addColorStop(0.3, enemy.color);
+                gradient.addColorStop(1, shadeColor(enemy.color, -30));
+
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.strokeStyle = shadeColor(enemy.color, -50);
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Inner eye
+                ctx.beginPath();
+                ctx.arc(0, 0, enemy.size * 0.2, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.arc(2, 0, enemy.size * 0.1, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            });
+        }
+
+        // Helper function to darken/lighten colors
+        function shadeColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 +
+                (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255)
+            ).toString(16).slice(1);
+        }
+
         function movePaddle() {
             paddle.x += paddle.dx;
 
@@ -433,6 +590,34 @@
                 }
             });
 
+            // Enemy collisions
+            enemies.forEach(enemy => {
+                if (!enemy.alive) return;
+
+                // Circle-circle collision
+                const dx = ball.x - enemy.x;
+                const dy = ball.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < ball.radius + enemy.size) {
+                    // Destroy enemy
+                    enemy.alive = false;
+                    score += 100 * level;  // Bonus points for destroying enemy
+                    createParticles(enemy.x, enemy.y, enemy.color);
+                    updateHUD();
+
+                    // Bounce ball
+                    const nx = dx / distance;
+                    const ny = dy / distance;
+                    ball.dx = Math.abs(ball.dx) * nx + (nx === 0 ? ball.dx : 0);
+                    ball.dy = Math.abs(ball.dy) * ny + (ny === 0 ? ball.dy : 0);
+
+                    // Push ball outside enemy
+                    ball.x = enemy.x + nx * (ball.radius + enemy.size + 1);
+                    ball.y = enemy.y + ny * (ball.radius + enemy.size + 1);
+                }
+            });
+
             // Ball lost
             if (ball.y > canvas.height) {
                 lives--;
@@ -455,6 +640,7 @@
                 } else {
                     ball.speed = Math.min(ball.speed + 0.5, 10);
                     createBricks();
+                    createEnemies();
                     resetBall();
                     updateHUD();
                 }
@@ -503,6 +689,7 @@
             ball.speed = 5;
             paddle.x = canvas.width / 2 - paddle.width / 2;
             createBricks();
+            createEnemies();
             resetBall();
             updateHUD();
             hideOverlay();
@@ -513,6 +700,7 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             drawBricks();
+            drawEnemies();
             drawPaddle();
             drawBall();
             drawParticles();
@@ -520,6 +708,7 @@
             if (gameState === 'playing') {
                 movePaddle();
                 moveBall();
+                updateEnemies();
                 updateParticles();
             }
 
