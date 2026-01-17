@@ -87,6 +87,53 @@
             box-shadow: 0 0 20px #e74c3c;
         }
 
+        #levelSelection {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+            max-width: 400px;
+        }
+
+        .level-btn {
+            padding: 15px;
+            font-size: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: 2px solid #5a67d8;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+
+        .level-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 15px rgba(102, 126, 234, 0.8);
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .level-btn:active {
+            transform: scale(0.95);
+        }
+
+        #backBtn {
+            margin-top: 15px;
+            padding: 10px 25px;
+            font-size: 14px;
+            background: #95a5a6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        #backBtn:hover {
+            background: #7f8c8d;
+            box-shadow: 0 0 10px rgba(149, 165, 166, 0.5);
+        }
+
         .hidden {
             display: none !important;
         }
@@ -138,7 +185,9 @@
         <h2 id="overlayTitle">Arkanoid</h2>
         <p id="overlayText">Break all the bricks!</p>
         <p id="overlaySubtext">Use mouse, arrow keys, or touch to move</p>
+        <div id="levelSelection" class="hidden"></div>
         <button id="actionBtn">Start Game</button>
+        <button id="backBtn" class="hidden">Back</button>
     </div>
 
     <script>
@@ -150,10 +199,12 @@
         canvas.height = 600;
 
         // Game state
-        let gameState = 'start'; // start, playing, paused, gameover, win
+        let gameState = 'start'; // start, levelselect, playing, paused, gameover, win
         let score = 0;
         let lives = 3;
         let level = 1;
+        let selectedLevel = 1;
+        const MAX_LEVEL = 10;
 
         // Paddle
         const paddle = {
@@ -625,7 +676,7 @@
 
                 if (lives <= 0) {
                     gameState = 'gameover';
-                    showOverlay('Game Over', `Final Score: ${score}`, 'Play Again');
+                    showOverlay('Game Over', `Final Score: ${score}`, 'Main Menu');
                 } else {
                     resetBall();
                 }
@@ -634,9 +685,9 @@
             // Check win
             if (bricks.every(b => !b.alive)) {
                 level++;
-                if (level > 10) {
+                if (level > MAX_LEVEL) {
                     gameState = 'win';
-                    showOverlay('You Win!', `Final Score: ${score}`, 'Play Again');
+                    showOverlay('You Win!', `Final Score: ${score}`, 'Main Menu');
                 } else {
                     ball.speed = Math.min(ball.speed + 0.5, 10);
                     createBricks();
@@ -670,11 +721,19 @@
             document.getElementById('lives').textContent = lives;
         }
 
-        function showOverlay(title, text, btnText) {
+        function showOverlay(title, text, btnText, showBackBtn = false) {
             document.getElementById('overlayTitle').textContent = title;
             document.getElementById('overlayText').textContent = text;
             document.getElementById('overlaySubtext').textContent = '';
             document.getElementById('actionBtn').textContent = btnText;
+            document.getElementById('levelSelection').classList.add('hidden');
+
+            if (showBackBtn) {
+                document.getElementById('backBtn').classList.remove('hidden');
+            } else {
+                document.getElementById('backBtn').classList.add('hidden');
+            }
+
             document.getElementById('overlay').classList.remove('hidden');
         }
 
@@ -682,11 +741,52 @@
             document.getElementById('overlay').classList.add('hidden');
         }
 
+        function showLevelSelection() {
+            gameState = 'levelselect';
+            document.getElementById('overlayTitle').textContent = 'Select Level';
+            document.getElementById('overlayText').textContent = 'Choose your starting level';
+            document.getElementById('overlaySubtext').textContent = '';
+            document.getElementById('actionBtn').classList.add('hidden');
+            document.getElementById('backBtn').classList.remove('hidden');
+
+            const levelSelectionDiv = document.getElementById('levelSelection');
+            levelSelectionDiv.classList.remove('hidden');
+            levelSelectionDiv.innerHTML = '';
+
+            // Create level buttons
+            for (let i = 1; i <= MAX_LEVEL; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'level-btn';
+                btn.textContent = i;
+                btn.addEventListener('click', () => selectLevel(i));
+                levelSelectionDiv.appendChild(btn);
+            }
+
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
+        function selectLevel(levelNum) {
+            selectedLevel = levelNum;
+            startGame();
+        }
+
+        function showMainMenu() {
+            gameState = 'start';
+            document.getElementById('overlayTitle').textContent = 'Arkanoid';
+            document.getElementById('overlayText').textContent = 'Break all the bricks!';
+            document.getElementById('overlaySubtext').textContent = 'Use mouse, arrow keys, or touch to move';
+            document.getElementById('actionBtn').textContent = 'Start Game';
+            document.getElementById('actionBtn').classList.remove('hidden');
+            document.getElementById('backBtn').classList.add('hidden');
+            document.getElementById('levelSelection').classList.add('hidden');
+            document.getElementById('overlay').classList.remove('hidden');
+        }
+
         function startGame() {
             score = 0;
             lives = 3;
-            level = 1;
-            ball.speed = 5;
+            level = selectedLevel;
+            ball.speed = 5 + (level - 1) * 0.5; // Increase speed for higher levels
             paddle.x = canvas.width / 2 - paddle.width / 2;
             createBricks();
             createEnemies();
@@ -716,7 +816,15 @@
         }
 
         // Event listeners
-        document.getElementById('actionBtn').addEventListener('click', startGame);
+        document.getElementById('actionBtn').addEventListener('click', () => {
+            if (gameState === 'start') {
+                showLevelSelection();
+            } else if (gameState === 'gameover' || gameState === 'win') {
+                showMainMenu();
+            }
+        });
+
+        document.getElementById('backBtn').addEventListener('click', showMainMenu);
 
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
