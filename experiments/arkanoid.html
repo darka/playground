@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Arkanoid</title>
+    <title>Space Arkanoid</title>
     <style>
         * {
             margin: 0;
@@ -12,7 +12,7 @@
         }
 
         body {
-            background: #1a1a2e;
+            background: #0a0a15;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -25,10 +25,10 @@
         }
 
         #gameCanvas {
-            border: 3px solid #0f3460;
-            background: linear-gradient(180deg, #16213e 0%, #0f3460 100%);
+            border: 3px solid #1a1a3e;
+            background: #000010;
             max-width: 100%;
-            box-shadow: 0 0 20px rgba(231, 76, 60, 0.5);
+            box-shadow: 0 0 30px rgba(100, 100, 255, 0.3);
             cursor: none;
         }
 
@@ -43,7 +43,7 @@
 
         .hud-item {
             font-size: 18px;
-            text-shadow: 0 0 10px #e74c3c;
+            text-shadow: 0 0 10px #00ffff;
         }
 
         #overlay {
@@ -51,17 +51,20 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.9);
+            background: rgba(0, 0, 20, 0.95);
             padding: 30px;
             border-radius: 15px;
             text-align: center;
-            border: 2px solid #e74c3c;
+            border: 2px solid #00ffff;
             z-index: 10;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
         }
 
         #overlay h2 {
             margin-bottom: 15px;
             font-size: 28px;
+            color: #00ffff;
+            text-shadow: 0 0 20px #00ffff;
         }
 
         #overlay p {
@@ -73,9 +76,9 @@
             margin-top: 20px;
             padding: 15px 30px;
             font-size: 18px;
-            background: #e74c3c;
+            background: linear-gradient(180deg, #00aaaa, #006666);
             color: white;
-            border: none;
+            border: 2px solid #00ffff;
             border-radius: 8px;
             cursor: pointer;
             font-weight: bold;
@@ -84,7 +87,7 @@
 
         #overlay button:hover {
             transform: scale(1.05);
-            box-shadow: 0 0 20px #e74c3c;
+            box-shadow: 0 0 20px #00ffff;
         }
 
         .hidden {
@@ -105,14 +108,15 @@
             cursor: pointer;
             touch-action: manipulation;
             font-weight: bold;
-            background: #3498db;
+            background: linear-gradient(180deg, #00aaaa, #006666);
             color: white;
+            border: 2px solid #00ffff;
             transition: all 0.1s;
         }
 
         .control-btn:active {
             transform: scale(0.95);
-            box-shadow: 0 0 20px #3498db;
+            box-shadow: 0 0 20px #00ffff;
         }
 
         @media (pointer: coarse) {
@@ -126,7 +130,7 @@
     <div id="hud">
         <span class="hud-item">Score: <span id="score">0</span></span>
         <span class="hud-item">Level: <span id="level">1</span></span>
-        <span class="hud-item">Lives: <span id="lives">3</span></span>
+        <span class="hud-item">Shields: <span id="lives">3</span></span>
     </div>
     <canvas id="gameCanvas"></canvas>
     <div id="mobileControls">
@@ -135,10 +139,10 @@
     </div>
 
     <div id="overlay">
-        <h2 id="overlayTitle">Arkanoid</h2>
-        <p id="overlayText">Break all the bricks!</p>
-        <p id="overlaySubtext">Use mouse, arrow keys, or touch to move</p>
-        <button id="actionBtn">Start Game</button>
+        <h2 id="overlayTitle">Space Arkanoid</h2>
+        <p id="overlayText">Destroy the alien blocks!</p>
+        <p id="overlaySubtext">Avoid enemy battleships!</p>
+        <button id="actionBtn">Launch Mission</button>
     </div>
 
     <script>
@@ -150,25 +154,38 @@
         canvas.height = 600;
 
         // Game state
-        let gameState = 'start'; // start, playing, paused, gameover, win
+        let gameState = 'start';
         let score = 0;
         let lives = 3;
         let level = 1;
 
-        // Paddle
-        const paddle = {
-            width: 80,
-            height: 12,
-            x: canvas.width / 2 - 40,
-            y: canvas.height - 30,
+        // Stars background
+        const stars = [];
+        for (let i = 0; i < 100; i++) {
+            stars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2 + 0.5,
+                speed: Math.random() * 0.5 + 0.1,
+                brightness: Math.random()
+            });
+        }
+
+        // Player ship (paddle)
+        const ship = {
+            width: 60,
+            height: 20,
+            x: canvas.width / 2 - 30,
+            y: canvas.height - 40,
             speed: 8,
-            dx: 0
+            dx: 0,
+            invincible: 0
         };
 
-        // Ball
+        // Ball (energy projectile)
         const ball = {
             x: canvas.width / 2,
-            y: paddle.y - 10,
+            y: ship.y - 15,
             radius: 8,
             speed: 5,
             dx: 0,
@@ -183,27 +200,26 @@
             width: 0,
             height: 20,
             padding: 4,
-            offsetTop: 60,
+            offsetTop: 50,
             offsetLeft: 0
         };
 
-        // Calculate brick dimensions
         brickConfig.width = (canvas.width - brickConfig.padding * (brickConfig.cols + 1)) / brickConfig.cols;
         brickConfig.offsetLeft = brickConfig.padding;
 
-        // Brick colors by row (from top)
+        // Brick colors
         const brickColors = [
-            { fill: '#e74c3c', stroke: '#c0392b', points: 50 },  // Red
-            { fill: '#e67e22', stroke: '#d35400', points: 40 },  // Orange
-            { fill: '#f1c40f', stroke: '#f39c12', points: 30 },  // Yellow
-            { fill: '#2ecc71', stroke: '#27ae60', points: 20 },  // Green
-            { fill: '#3498db', stroke: '#2980b9', points: 10 }   // Blue
+            { fill: '#ff3366', stroke: '#cc0044', points: 50 },
+            { fill: '#ff6600', stroke: '#cc4400', points: 40 },
+            { fill: '#ffcc00', stroke: '#cc9900', points: 30 },
+            { fill: '#33ff66', stroke: '#00cc44', points: 20 },
+            { fill: '#3366ff', stroke: '#0044cc', points: 10 }
         ];
 
         let bricks = [];
-
-        // Particles for effects
+        let enemies = [];
         let particles = [];
+        let explosions = [];
 
         function createBricks() {
             bricks = [];
@@ -220,32 +236,89 @@
                         height: brickConfig.height,
                         color: brickColors[colorIndex],
                         alive: true,
-                        hits: row < extraRows ? 2 : 1 // Extra rows need 2 hits
+                        hits: row < extraRows ? 2 : 1
                     });
                 }
             }
         }
 
-        function createParticles(x, y, color) {
-            for (let i = 0; i < 8; i++) {
+        function createEnemies() {
+            enemies = [];
+            const enemyCount = Math.min(2 + level, 6);
+            const brickBottom = brickConfig.offsetTop + (brickConfig.rows + Math.min(level - 1, 3)) * (brickConfig.height + brickConfig.padding) + 30;
+            const safeZone = ship.y - 80;
+
+            for (let i = 0; i < enemyCount; i++) {
+                enemies.push({
+                    x: Math.random() * (canvas.width - 40) + 20,
+                    y: brickBottom + Math.random() * (safeZone - brickBottom),
+                    width: 35,
+                    height: 25,
+                    dx: (Math.random() - 0.5) * (2 + level * 0.3),
+                    dy: (Math.random() - 0.5) * (1 + level * 0.2),
+                    type: Math.floor(Math.random() * 3),
+                    angle: 0,
+                    shootTimer: Math.random() * 100
+                });
+            }
+        }
+
+        function createParticles(x, y, color, count = 8) {
+            for (let i = 0; i < count; i++) {
                 particles.push({
                     x: x,
                     y: y,
-                    dx: (Math.random() - 0.5) * 6,
-                    dy: (Math.random() - 0.5) * 6,
-                    radius: Math.random() * 3 + 2,
+                    dx: (Math.random() - 0.5) * 8,
+                    dy: (Math.random() - 0.5) * 8,
+                    radius: Math.random() * 3 + 1,
                     color: color,
                     life: 1
                 });
             }
         }
 
+        function createExplosion(x, y) {
+            explosions.push({
+                x: x,
+                y: y,
+                radius: 5,
+                maxRadius: 40,
+                life: 1
+            });
+            createParticles(x, y, '#ff6600', 15);
+            createParticles(x, y, '#ffff00', 10);
+        }
+
         function updateParticles() {
             particles = particles.filter(p => {
                 p.x += p.dx;
                 p.y += p.dy;
-                p.life -= 0.02;
+                p.dx *= 0.98;
+                p.dy *= 0.98;
+                p.life -= 0.025;
                 return p.life > 0;
+            });
+
+            explosions = explosions.filter(e => {
+                e.radius += 3;
+                e.life -= 0.05;
+                return e.life > 0;
+            });
+        }
+
+        function drawStars() {
+            stars.forEach(star => {
+                star.y += star.speed;
+                if (star.y > canvas.height) {
+                    star.y = 0;
+                    star.x = Math.random() * canvas.width;
+                }
+                star.brightness = 0.5 + Math.sin(Date.now() * 0.003 + star.x) * 0.3;
+
+                ctx.beginPath();
+                ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness})`;
+                ctx.fill();
             });
         }
 
@@ -258,32 +331,81 @@
                 ctx.fill();
             });
             ctx.globalAlpha = 1;
+
+            explosions.forEach(e => {
+                ctx.globalAlpha = e.life * 0.5;
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, e.radius, 0, Math.PI * 2);
+                const gradient = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, e.radius);
+                gradient.addColorStop(0, '#ffffff');
+                gradient.addColorStop(0.3, '#ffaa00');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
         }
 
-        function drawPaddle() {
-            // Paddle glow
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = '#3498db';
+        function drawShip() {
+            ctx.save();
+            ctx.translate(ship.x + ship.width / 2, ship.y + ship.height / 2);
 
-            // Main paddle
-            const gradient = ctx.createLinearGradient(paddle.x, paddle.y, paddle.x, paddle.y + paddle.height);
-            gradient.addColorStop(0, '#5dade2');
-            gradient.addColorStop(1, '#2980b9');
+            // Flicker when invincible
+            if (ship.invincible > 0 && Math.floor(ship.invincible / 5) % 2 === 0) {
+                ctx.globalAlpha = 0.5;
+            }
 
+            // Engine glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#00ffff';
+
+            // Ship body
             ctx.beginPath();
-            ctx.roundRect(paddle.x, paddle.y, paddle.width, paddle.height, 6);
+            ctx.moveTo(0, -ship.height / 2);
+            ctx.lineTo(ship.width / 2, ship.height / 2);
+            ctx.lineTo(ship.width / 4, ship.height / 4);
+            ctx.lineTo(-ship.width / 4, ship.height / 4);
+            ctx.lineTo(-ship.width / 2, ship.height / 2);
+            ctx.closePath();
+
+            const gradient = ctx.createLinearGradient(0, -ship.height / 2, 0, ship.height / 2);
+            gradient.addColorStop(0, '#00ffff');
+            gradient.addColorStop(0.5, '#0088aa');
+            gradient.addColorStop(1, '#004455');
             ctx.fillStyle = gradient;
             ctx.fill();
-            ctx.strokeStyle = '#1a5276';
+            ctx.strokeStyle = '#00ffff';
             ctx.lineWidth = 2;
             ctx.stroke();
 
+            // Cockpit
+            ctx.beginPath();
+            ctx.ellipse(0, -ship.height / 6, ship.width / 6, ship.height / 4, 0, 0, Math.PI * 2);
+            ctx.fillStyle = '#003344';
+            ctx.fill();
+            ctx.strokeStyle = '#00aaaa';
+            ctx.stroke();
+
+            // Engine flames
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ff6600';
+            ctx.beginPath();
+            ctx.moveTo(-ship.width / 5, ship.height / 4);
+            ctx.lineTo(-ship.width / 8, ship.height / 2 + Math.random() * 5 + 5);
+            ctx.lineTo(0, ship.height / 4);
+            ctx.moveTo(0, ship.height / 4);
+            ctx.lineTo(ship.width / 8, ship.height / 2 + Math.random() * 5 + 5);
+            ctx.lineTo(ship.width / 5, ship.height / 4);
+            ctx.fillStyle = '#ff8800';
+            ctx.fill();
+
             ctx.shadowBlur = 0;
+            ctx.restore();
         }
 
         function drawBall() {
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#f39c12';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#ffff00';
 
             ctx.beginPath();
             ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
@@ -292,12 +414,20 @@
                 ball.x - 2, ball.y - 2, 0,
                 ball.x, ball.y, ball.radius
             );
-            gradient.addColorStop(0, '#fff');
-            gradient.addColorStop(0.3, '#f39c12');
-            gradient.addColorStop(1, '#e67e22');
+            gradient.addColorStop(0, '#ffffff');
+            gradient.addColorStop(0.4, '#ffff00');
+            gradient.addColorStop(1, '#ff8800');
 
             ctx.fillStyle = gradient;
             ctx.fill();
+
+            // Trail effect
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(ball.x - ball.dx * 0.5, ball.y - ball.dy * 0.5, ball.radius * 0.8, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffaa00';
+            ctx.fill();
+            ctx.globalAlpha = 1;
 
             ctx.shadowBlur = 0;
         }
@@ -306,7 +436,7 @@
             bricks.forEach(brick => {
                 if (!brick.alive) return;
 
-                ctx.shadowBlur = 5;
+                ctx.shadowBlur = 8;
                 ctx.shadowColor = brick.color.fill;
 
                 const gradient = ctx.createLinearGradient(brick.x, brick.y, brick.x, brick.y + brick.height);
@@ -321,32 +451,189 @@
                 ctx.lineWidth = 1;
                 ctx.stroke();
 
-                // Show crack for damaged bricks
+                // Damage indicator
                 if (brick.hits > 1) {
-                    ctx.beginPath();
-                    ctx.moveTo(brick.x + brick.width * 0.3, brick.y + brick.height * 0.2);
-                    ctx.lineTo(brick.x + brick.width * 0.5, brick.y + brick.height * 0.5);
-                    ctx.lineTo(brick.x + brick.width * 0.7, brick.y + brick.height * 0.8);
-                    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                    ctx.fillRect(brick.x + 2, brick.y + 2, brick.width - 4, 4);
                 }
 
                 ctx.shadowBlur = 0;
             });
         }
 
-        function movePaddle() {
-            paddle.x += paddle.dx;
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                ctx.save();
+                ctx.translate(enemy.x, enemy.y);
+                enemy.angle += 0.02;
 
-            // Wall collision
-            if (paddle.x < 0) paddle.x = 0;
-            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#ff0066';
 
-            // Ball follows paddle when attached
+                // Different enemy types
+                if (enemy.type === 0) {
+                    // Triangular fighter
+                    ctx.beginPath();
+                    ctx.moveTo(0, -enemy.height / 2);
+                    ctx.lineTo(enemy.width / 2, enemy.height / 2);
+                    ctx.lineTo(-enemy.width / 2, enemy.height / 2);
+                    ctx.closePath();
+                    const g = ctx.createLinearGradient(0, -enemy.height / 2, 0, enemy.height / 2);
+                    g.addColorStop(0, '#ff0066');
+                    g.addColorStop(1, '#990033');
+                    ctx.fillStyle = g;
+                    ctx.fill();
+                    ctx.strokeStyle = '#ff3388';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Eye
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ffff00';
+                    ctx.fill();
+                } else if (enemy.type === 1) {
+                    // Diamond cruiser
+                    ctx.beginPath();
+                    ctx.moveTo(0, -enemy.height / 2);
+                    ctx.lineTo(enemy.width / 2, 0);
+                    ctx.lineTo(0, enemy.height / 2);
+                    ctx.lineTo(-enemy.width / 2, 0);
+                    ctx.closePath();
+                    const g = ctx.createLinearGradient(0, -enemy.height / 2, 0, enemy.height / 2);
+                    g.addColorStop(0, '#9900ff');
+                    g.addColorStop(1, '#550088');
+                    ctx.fillStyle = g;
+                    ctx.fill();
+                    ctx.strokeStyle = '#bb44ff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Core
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 6, 0, Math.PI * 2);
+                    ctx.fillStyle = '#ff00ff';
+                    ctx.fill();
+                } else {
+                    // Saucer
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, enemy.width / 2, enemy.height / 3, 0, 0, Math.PI * 2);
+                    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, enemy.width / 2);
+                    g.addColorStop(0, '#00ff66');
+                    g.addColorStop(1, '#006633');
+                    ctx.fillStyle = g;
+                    ctx.fill();
+                    ctx.strokeStyle = '#00ff88';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Dome
+                    ctx.beginPath();
+                    ctx.ellipse(0, -3, enemy.width / 4, enemy.height / 4, 0, Math.PI, 0);
+                    ctx.fillStyle = '#aaffaa';
+                    ctx.fill();
+
+                    // Lights
+                    for (let i = 0; i < 4; i++) {
+                        const lightAngle = enemy.angle + (i * Math.PI / 2);
+                        const lx = Math.cos(lightAngle) * enemy.width / 3;
+                        const ly = Math.sin(lightAngle) * enemy.height / 6;
+                        ctx.beginPath();
+                        ctx.arc(lx, ly, 3, 0, Math.PI * 2);
+                        ctx.fillStyle = i % 2 === 0 ? '#ff0000' : '#00ff00';
+                        ctx.fill();
+                    }
+                }
+
+                ctx.shadowBlur = 0;
+                ctx.restore();
+            });
+        }
+
+        function moveShip() {
+            ship.x += ship.dx;
+            if (ship.x < 0) ship.x = 0;
+            if (ship.x + ship.width > canvas.width) ship.x = canvas.width - ship.width;
+
             if (ball.attached) {
-                ball.x = paddle.x + paddle.width / 2;
+                ball.x = ship.x + ship.width / 2;
             }
+
+            if (ship.invincible > 0) ship.invincible--;
+        }
+
+        function moveEnemies() {
+            const brickBottom = brickConfig.offsetTop + (brickConfig.rows + Math.min(level - 1, 3)) * (brickConfig.height + brickConfig.padding) + 20;
+            const safeZone = ship.y - 60;
+
+            enemies.forEach(enemy => {
+                enemy.x += enemy.dx;
+                enemy.y += enemy.dy;
+
+                // Bounce off walls
+                if (enemy.x < enemy.width / 2 || enemy.x > canvas.width - enemy.width / 2) {
+                    enemy.dx *= -1;
+                    enemy.x = Math.max(enemy.width / 2, Math.min(canvas.width - enemy.width / 2, enemy.x));
+                }
+
+                // Stay in patrol zone
+                if (enemy.y < brickBottom || enemy.y > safeZone) {
+                    enemy.dy *= -1;
+                    enemy.y = Math.max(brickBottom, Math.min(safeZone, enemy.y));
+                }
+
+                // Occasionally change direction
+                if (Math.random() < 0.01) {
+                    enemy.dx += (Math.random() - 0.5) * 0.5;
+                    enemy.dy += (Math.random() - 0.5) * 0.3;
+                    enemy.dx = Math.max(-3 - level * 0.2, Math.min(3 + level * 0.2, enemy.dx));
+                    enemy.dy = Math.max(-2 - level * 0.1, Math.min(2 + level * 0.1, enemy.dy));
+                }
+            });
+        }
+
+        function checkEnemyCollisions() {
+            // Check ship collision with enemies
+            if (ship.invincible <= 0) {
+                enemies.forEach(enemy => {
+                    const dx = (ship.x + ship.width / 2) - enemy.x;
+                    const dy = (ship.y + ship.height / 2) - enemy.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < ship.width / 2 + enemy.width / 2 - 5) {
+                        lives--;
+                        ship.invincible = 120;
+                        createExplosion(ship.x + ship.width / 2, ship.y);
+                        updateHUD();
+
+                        if (lives <= 0) {
+                            gameState = 'gameover';
+                            showOverlay('Mission Failed', `Final Score: ${score}`, 'Retry Mission');
+                        }
+                    }
+                });
+            }
+
+            // Check ball collision with enemies
+            enemies = enemies.filter(enemy => {
+                const dx = ball.x - enemy.x;
+                const dy = ball.y - enemy.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist < ball.radius + enemy.width / 2) {
+                    score += 100 * level;
+                    createExplosion(enemy.x, enemy.y);
+                    updateHUD();
+
+                    // Ball bounces
+                    const angle = Math.atan2(dy, dx);
+                    ball.dx = Math.cos(angle) * Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+                    ball.dy = Math.sin(angle) * Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
+
+                    return false;
+                }
+                return true;
+            });
         }
 
         function moveBall() {
@@ -369,29 +656,27 @@
                 ball.dy *= -1;
             }
 
-            // Paddle collision
+            // Ship collision
             if (
-                ball.y + ball.radius > paddle.y &&
-                ball.y - ball.radius < paddle.y + paddle.height &&
-                ball.x > paddle.x &&
-                ball.x < paddle.x + paddle.width
+                ball.y + ball.radius > ship.y &&
+                ball.y - ball.radius < ship.y + ship.height &&
+                ball.x > ship.x &&
+                ball.x < ship.x + ship.width
             ) {
-                // Calculate hit position (-1 to 1)
-                const hitPos = (ball.x - (paddle.x + paddle.width / 2)) / (paddle.width / 2);
-
-                // Adjust angle based on where ball hits paddle
-                const angle = hitPos * Math.PI / 3; // Max 60 degrees
+                const hitPos = (ball.x - (ship.x + ship.width / 2)) / (ship.width / 2);
+                const angle = hitPos * Math.PI / 3;
                 const speed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
 
                 ball.dx = speed * Math.sin(angle);
                 ball.dy = -Math.abs(speed * Math.cos(angle));
-                ball.y = paddle.y - ball.radius;
+                ball.y = ship.y - ball.radius;
 
-                // Speed up slightly
                 const newSpeed = Math.min(speed * 1.02, 12);
                 const currentSpeed = Math.sqrt(ball.dx * ball.dx + ball.dy * ball.dy);
                 ball.dx = (ball.dx / currentSpeed) * newSpeed;
                 ball.dy = (ball.dy / currentSpeed) * newSpeed;
+
+                createParticles(ball.x, ball.y, '#00ffff', 5);
             }
 
             // Brick collisions
@@ -404,7 +689,6 @@
                     ball.y + ball.radius > brick.y &&
                     ball.y - ball.radius < brick.y + brick.height
                 ) {
-                    // Determine collision side
                     const overlapLeft = ball.x + ball.radius - brick.x;
                     const overlapRight = brick.x + brick.width - (ball.x - ball.radius);
                     const overlapTop = ball.y + ball.radius - brick.y;
@@ -440,7 +724,7 @@
 
                 if (lives <= 0) {
                     gameState = 'gameover';
-                    showOverlay('Game Over', `Final Score: ${score}`, 'Play Again');
+                    showOverlay('Mission Failed', `Final Score: ${score}`, 'Retry Mission');
                 } else {
                     resetBall();
                 }
@@ -451,10 +735,11 @@
                 level++;
                 if (level > 10) {
                     gameState = 'win';
-                    showOverlay('You Win!', `Final Score: ${score}`, 'Play Again');
+                    showOverlay('Victory!', `Final Score: ${score}`, 'New Campaign');
                 } else {
                     ball.speed = Math.min(ball.speed + 0.5, 10);
                     createBricks();
+                    createEnemies();
                     resetBall();
                     updateHUD();
                 }
@@ -463,8 +748,8 @@
 
         function resetBall() {
             ball.attached = true;
-            ball.x = paddle.x + paddle.width / 2;
-            ball.y = paddle.y - ball.radius - 2;
+            ball.x = ship.x + ship.width / 2;
+            ball.y = ship.y - ball.radius - 10;
             ball.dx = 0;
             ball.dy = 0;
         }
@@ -501,8 +786,10 @@
             lives = 3;
             level = 1;
             ball.speed = 5;
-            paddle.x = canvas.width / 2 - paddle.width / 2;
+            ship.x = canvas.width / 2 - ship.width / 2;
+            ship.invincible = 0;
             createBricks();
+            createEnemies();
             resetBall();
             updateHUD();
             hideOverlay();
@@ -510,16 +797,21 @@
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000015';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            drawStars();
             drawBricks();
-            drawPaddle();
+            drawEnemies();
+            drawShip();
             drawBall();
             drawParticles();
 
             if (gameState === 'playing') {
-                movePaddle();
+                moveShip();
+                moveEnemies();
                 moveBall();
+                checkEnemyCollisions();
                 updateParticles();
             }
 
@@ -532,10 +824,10 @@
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
             if (e.key === 'ArrowLeft' || e.key === 'a') {
-                paddle.dx = -paddle.speed;
+                ship.dx = -ship.speed;
             }
             if (e.key === 'ArrowRight' || e.key === 'd') {
-                paddle.dx = paddle.speed;
+                ship.dx = ship.speed;
             }
             if (e.key === ' ' && gameState === 'playing') {
                 launchBall();
@@ -544,7 +836,7 @@
 
         document.addEventListener('keyup', (e) => {
             if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'ArrowRight' || e.key === 'd') {
-                paddle.dx = 0;
+                ship.dx = 0;
             }
         });
 
@@ -553,13 +845,13 @@
             if (gameState !== 'playing') return;
             const rect = canvas.getBoundingClientRect();
             const mouseX = e.clientX - rect.left;
-            paddle.x = mouseX - paddle.width / 2;
+            ship.x = mouseX - ship.width / 2;
 
-            if (paddle.x < 0) paddle.x = 0;
-            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+            if (ship.x < 0) ship.x = 0;
+            if (ship.x + ship.width > canvas.width) ship.x = canvas.width - ship.width;
 
             if (ball.attached) {
-                ball.x = paddle.x + paddle.width / 2;
+                ball.x = ship.x + ship.width / 2;
             }
         });
 
@@ -575,13 +867,13 @@
             if (gameState !== 'playing') return;
             const rect = canvas.getBoundingClientRect();
             const touchX = e.touches[0].clientX - rect.left;
-            paddle.x = touchX - paddle.width / 2;
+            ship.x = touchX - ship.width / 2;
 
-            if (paddle.x < 0) paddle.x = 0;
-            if (paddle.x + paddle.width > canvas.width) paddle.x = canvas.width - paddle.width;
+            if (ship.x < 0) ship.x = 0;
+            if (ship.x + ship.width > canvas.width) ship.x = canvas.width - ship.width;
 
             if (ball.attached) {
-                ball.x = paddle.x + paddle.width / 2;
+                ball.x = ship.x + ship.width / 2;
             }
         });
 
@@ -599,9 +891,9 @@
         let rightPressed = false;
 
         function updateMobileControls() {
-            if (leftPressed) paddle.dx = -paddle.speed;
-            else if (rightPressed) paddle.dx = paddle.speed;
-            else paddle.dx = 0;
+            if (leftPressed) ship.dx = -ship.speed;
+            else if (rightPressed) ship.dx = ship.speed;
+            else ship.dx = 0;
 
             if (gameState === 'playing') {
                 requestAnimationFrame(updateMobileControls);
